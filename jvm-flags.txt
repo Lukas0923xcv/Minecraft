@@ -1,0 +1,80 @@
+# JVM flags for this server: Java 25, 4-8 cores
+#
+# Lines starting with "-" are the flags; scripts/smoke_test.py reads them from
+# this file, so CI boots the server with exactly these flags on Java 25.
+#
+# ---------------------------------------------------------------------------
+# WHICH GARBAGE COLLECTOR: G1 (Aikar-style), not ZGC
+# ---------------------------------------------------------------------------
+# * G1 with Aikar's tuning is still the standard recommendation for Minecraft
+#   servers with heaps up to ~12-16 GB. With 6-10 GB its young-GC pauses are a
+#   few to a few tens of ms, which fits inside a 50 ms tick.
+# * Generational ZGC (the only ZGC mode since Java 24; -XX:+ZGenerational no
+#   longer exists) has sub-ms pauses, but it does its work in concurrent GC
+#   threads. On 4-8 cores those threads compete with the Async and C2ME worker
+#   pools exactly when the server is busiest. It also needs ~20-30% more heap
+#   for the same live set. It pays off on big hosts (12+ cores, 16+ GB heap).
+# * If you have spare cores and RAM and want to try ZGC, swap the G1 block below
+#   for:   -XX:+UseZGC -XX:+AlwaysPreTouch -XX:+DisableExplicitGC
+#          -XX:+PerfDisableSharedMem -XX:+UseCompactObjectHeaders
+#   (and drop every -XX:G1... flag), then compare with /spark gc and /spark tps.
+#
+# -XX:+UseCompactObjectHeaders (Java 25, JEP 519): 8-byte instead of 12-byte
+#   object headers. Typically 10-20% less heap for Minecraft's many small
+#   objects (block states, entities, NBT, ...). Product feature in Java 25;
+#   tested in CI with all mods of this pack.
+#
+# Every flag below was checked on OpenJDK 25: none is obsolete or ignored
+# (Java 25 warns about obsolete flags, and the CI smoke test would fail).
+#
+# ---------------------------------------------------------------------------
+# HOW MUCH RAM
+# ---------------------------------------------------------------------------
+#   up to ~10 players, normal world:   6G
+#   10-30 players or heavy pre-gen:    8G   (recommended default)
+#   farms with thousands of entities:  10G
+# Use the same value for -Xms and -Xmx (with AlwaysPreTouch the heap is
+# committed at start: no resizing pauses, and the OS cannot take it back).
+# Leave at least 1.5-2 GB of RAM for the OS, Crafty and the JVM's off-heap
+# memory (metaspace, thread stacks, Netty buffers, C2ME's native worldgen
+# code). For example, a 12 GB host -> -Xmx8G or -Xmx10G at most.
+# Above 12 GB of heap, use Aikar's large-heap values instead:
+#   G1NewSizePercent=40 G1MaxNewSizePercent=50 G1HeapRegionSize=16M
+#   G1ReservePercent=15 InitiatingHeapOccupancyPercent=20
+#
+# ---------------------------------------------------------------------------
+# CRAFTY CONTROLLER 4
+# ---------------------------------------------------------------------------
+# Server -> Config tab -> "Server Execution Command": replace it with the line
+# below (one line). Change 8G to your RAM choice in both places. The Crafty
+# Docker image ships Java 25 at /usr/lib/jvm/java-25-openjdk-amd64/bin/java;
+# on a bare-metal Crafty install use the path of your Java 25 binary
+# (`ls /usr/lib/jvm` or `which java` + `java -version`).
+#
+# /usr/lib/jvm/java-25-openjdk-amd64/bin/java -Xms8G -Xmx8G -XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=200 -XX:+UnlockExperimentalVMOptions -XX:+DisableExplicitGC -XX:+AlwaysPreTouch -XX:G1NewSizePercent=30 -XX:G1MaxNewSizePercent=40 -XX:G1HeapRegionSize=8M -XX:G1ReservePercent=20 -XX:G1HeapWastePercent=5 -XX:G1MixedGCCountTarget=4 -XX:InitiatingHeapOccupancyPercent=15 -XX:G1MixedGCLiveThresholdPercent=90 -XX:G1RSetUpdatingPauseTimePercent=5 -XX:SurvivorRatio=32 -XX:+PerfDisableSharedMem -XX:MaxTenuringThreshold=1 -XX:+UseCompactObjectHeaders -jar server.jar --nogui
+#
+# Do NOT add -XX:ActiveProcessorCount or CPU pinning: the thread pools size
+# themselves from the visible cpu count (see README "Thread tuning").
+# ---------------------------------------------------------------------------
+
+-Xms8G
+-Xmx8G
+-XX:+UseG1GC
+-XX:+ParallelRefProcEnabled
+-XX:MaxGCPauseMillis=200
+-XX:+UnlockExperimentalVMOptions
+-XX:+DisableExplicitGC
+-XX:+AlwaysPreTouch
+-XX:G1NewSizePercent=30
+-XX:G1MaxNewSizePercent=40
+-XX:G1HeapRegionSize=8M
+-XX:G1ReservePercent=20
+-XX:G1HeapWastePercent=5
+-XX:G1MixedGCCountTarget=4
+-XX:InitiatingHeapOccupancyPercent=15
+-XX:G1MixedGCLiveThresholdPercent=90
+-XX:G1RSetUpdatingPauseTimePercent=5
+-XX:SurvivorRatio=32
+-XX:+PerfDisableSharedMem
+-XX:MaxTenuringThreshold=1
+-XX:+UseCompactObjectHeaders
