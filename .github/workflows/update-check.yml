@@ -1,0 +1,54 @@
+name: update-check
+
+# Weekly: look for newer builds of every mod / Fabric for the pinned MC version
+# and open (or refresh) a PR that updates modpack.toml. The PR runs build.yml,
+# so the new pins are hash-verified and boot-tested before you merge.
+# A newer Minecraft release is only reported in the PR body, never adopted.
+on:
+  schedule:
+    - cron: "17 4 * * 1" # Mondays 04:17 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.13"
+      - name: Check for updates
+        run: python scripts/update.py --summary "$RUNNER_TEMP/update-summary.md"
+      - name: Show summary
+        id: diff
+        run: |
+          cat "$RUNNER_TEMP/update-summary.md" | tee -a "$GITHUB_STEP_SUMMARY"
+          if git diff --quiet -- modpack.toml; then echo "changed=false" >> "$GITHUB_OUTPUT"; else echo "changed=true" >> "$GITHUB_OUTPUT"; fi
+      # PRs opened with GITHUB_TOKEN do not trigger build.yml, so the new pins
+      # are built (hash-verified) and boot-tested right here before the PR opens.
+      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
+        if: steps.diff.outputs.changed == 'true'
+        with:
+          distribution: temurin
+          java-version: "25"
+      - name: Build + smoke test the updated pack
+        if: steps.diff.outputs.changed == 'true'
+        run: |
+          python scripts/build.py --tag update-check
+          python scripts/smoke_test.py dist/*.zip --prefetch-vanilla --load-test --heap 4G --summary "$RUNNER_TEMP/smoke.md"
+          { echo; echo "---"; echo "<details><summary>Smoke test on the new pins (passed)</summary>"; echo; cat "$RUNNER_TEMP/smoke.md"; echo "</details>"; } >> "$RUNNER_TEMP/update-summary.md"
+          rm -rf dist
+      - name: Open / update PR
+        if: steps.diff.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@3ffccacd46053766916f087ce41d627c0b8cf2d1 # v8.1.3
+        with:
+          branch: automation/mod-updates
+          delete-branch: true
+          commit-message: "Update pinned mod / Fabric versions"
+          title: "Update pinned mod / Fabric versions"
+          body-path: ${{ runner.temp }}/update-summary.md
+          add-paths: modpack.toml
