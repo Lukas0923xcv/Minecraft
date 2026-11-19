@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "perfdash",
+  "version": "${version}",
+  "name": "perfdash",
+  "description": "Server-side in-game performance dashboard: load per CPU core and per workload type (main tick, Async entities, C2ME chunks + lighting, network, GC). Toggle with Sneak + Swap-offhand (Shift+F) or /dashboard. Works with vanilla clients.",
+  "authors": ["Lukas0923xcv"],
+  "contact": {"sources": "https://github.com/Lukas0923xcv/minecraft"},
+  "environment": "server",
+  "entrypoints": {
+    "main": ["io.github.lukas0923xcv.perfdash.PerfDash"]
+  },
+  "mixins": ["perfdash.mixins.json"],
+  "depends": {
+    "fabricloader": ">=0.18.0",
+    "minecraft": "${minecraft}",
+    "java": ">=25",
+    "fabric-command-api-v2": "*",
+    "fabric-lifecycle-events-v1": "*",
+    "fabric-networking-api-v1": "*"
+  }
+}
