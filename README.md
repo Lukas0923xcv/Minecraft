@@ -14,6 +14,7 @@ work over all CPU cores **by type of workload**, not by world region:
 | Profiling | spark | — |
 | Pre-generation | Chunky | drives C2ME |
 | Library | Fabric API | — |
+| **In-game load dashboard** | **perfdash** (built in this repo, `dashboard/`) | own low-priority sampler thread |
 
 Everything is **server-side only**, so vanilla 26.3 clients can join without installing anything.
 Region threading (Folia and similar) is **not** used: a lag spike in one chunk
@@ -25,6 +26,47 @@ Each [release](https://github.com/Lukas0923xcv/minecraft/releases) lists them ag
 > **Stability.** Async, C2ME, ScalableLux and VMP are only published as **alpha**
 > builds on Modrinth (that's normal for these mods). Async calls itself experimental.
 > Keep backups, for example with Crafty's backup schedule.
+
+---
+
+## In-game dashboard (perfdash)
+
+Every player can open a live load panel in the sidebar on the right of the screen:
+
+* **Sneak + Swap item with offhand**, i.e. **Shift + F** with default controls, toggles it. While
+  sneaking, F opens the dashboard and does not swap your hands. Without sneaking, F swaps hands as usual.
+* Or type **`/dashboard`**. In the Crafty console, use **`dashboard print`** to get the same panel as text.
+
+```
+⚙ Server load (Shift+F)
+TPS 20.0  MSPT 20.3                  <- tick rate, ms per tick (budget 50)
+CPU  37% host ·  36% server          <- whole machine / this server process
+ 0 ██▌···  41%   1 ██▎···  38%      <- load per CPU core (Linux /proc/stat)
+ 2 ██▏···  35%   3 ██▏···  36%
+by type (100% = 1 core)              <- CPU time per workload type:
+Main tick 41%                        <-   server main thread (redstone, block entities, game loop)
+Entities 97%                         <-   Async entity workers
+Chunks+Light 0%                      <-   C2ME chunk load/gen/IO + ScalableLux lighting
+Vanilla workers 0%                   <-   vanilla Worker-Main / IO-Worker pools
+Network 0%                           <-   Netty IO (VMP)
+GC / JIT 4%                          <-   JVM-internal: garbage collector, JIT compiler
+Other 0%                             <-   spark, Chunky, misc. threads
+3015 entities · 144 chunks · 0 on
+```
+
+(Real output from the CI load test: 3,000 mobs on 4 cores. The entity work is spread over all cores.)
+
+How it works, and why no client mod is needed: vanilla clients can't get new keybinds, but the
+server sees the offhand-swap packet and the player's sneak state, so this key combination works for
+everyone with an unmodified client. The panel is drawn with ordinary scoreboard-sidebar packets
+sent only to that player. The server's real scoreboard is never changed, and a server sidebar
+objective comes back when you close the panel. Per-core load is read from `/proc/stat` (Linux, whole
+host). The workload split comes from the JVM's per-thread CPU clocks, grouped by thread name. GC/JIT is
+the process CPU time minus all Java threads. Sampling runs once a second on its own minimum-priority
+thread. The sidebar refreshes every second, and only for players who have it open.
+
+`config/perfdash.properties`: `refreshTicks` (default 20) and `joinHint` (default true: tells
+players about Shift+F when they join).
 
 ---
 
@@ -198,14 +240,16 @@ modpack.toml              single source of truth: MC/Java/Fabric versions, mods 
 server/                   copied into the zip: config/, server.properties, eula.txt (eula=false)
 scripts/build.py          modpack.toml -> dist/<zip>, SHA256SUMS, release-notes.md (fails on any hash mismatch)
 scripts/update.py         finds newer compatible builds on Modrinth/Fabric and rewrites modpack.toml
+scripts/build_dashboard.py compiles dashboard/ with javac (no Gradle: MC 26.x is unobfuscated)
 scripts/smoke_test.py     boots the zip headless and checks it (used by CI)
+dashboard/                source of the perfdash in-game dashboard mod
 jvm-flags.txt             JVM flags + Crafty command
 .github/workflows/        build.yml (CI + releases), update-check.yml (weekly update PR)
 ```
 
 ## Build locally
 
-Needs Python 3.11+ (standard library only) and, for the smoke test, Java 25.
+Needs Python 3.11+ (standard library only) and a **JDK 25** (`javac`, for the dashboard mod).
 
 ```bash
 python scripts/build.py --tag dev
@@ -216,6 +260,8 @@ python scripts/smoke_test.py dist/minecraft-server-26.3-dev.zip --load-test
 ```
 
 The build is reproducible: same commit, same zip (sorted entries, fixed timestamps, pinned hashes).
+Every downloaded file is hash-pinned. The dashboard jar is compiled from source against pinned,
+hash-verified jars, so it is identical for the same JDK build. CI always uses Temurin 25.
 
 ## Updating
 
@@ -241,5 +287,8 @@ The build is reproducible: same commit, same zip (sorted entries, fixed timestam
    **load test**: summons 3000 mobs into 64 force-loaded chunks, then pre-generates about 3700 chunks
    with Chunky. MSPT and chunks/s go to the job summary. It then sends `stop`. The job fails on a crash,
    a non-zero exit, a missing mod, any ERROR/FATAL log line, any incompatibility, mixin-failure or
-   threading-violation warning, or missing pool start-up lines.
+   threading-violation warning, or missing pool start-up lines. For the dashboard, it checks that the
+   Shift+F hook was applied, renders the panel with `dashboard print` (idle and under load, shown
+   in the job summary), and runs `dashboard selftest`, which round-trips every sidebar packet through
+   the game's network codecs.
 3. **release** (tags `v*` only): attaches the zip and `SHA256SUMS` and uses the version table as release notes.
