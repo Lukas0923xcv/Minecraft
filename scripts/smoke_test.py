@@ -38,7 +38,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import modrinth as mr  # noqa: E402
 
-EXPECTED_MOD_IDS = ["fabric-api", "async", "c2me", "scalablelux", "lithium", "ferritecore", "vmp", "spark", "chunky"]
+EXPECTED_MOD_IDS = ["fabric-api", "async", "c2me", "scalablelux", "lithium", "ferritecore", "vmp", "spark", "chunky", "perfdash"]
 
 # Lines that mean "something is wrong" even at WARN level.
 BAD_PATTERNS = [
@@ -62,6 +62,8 @@ REQUIRED_LINES = {
     "Async thread pool started": r"Initialized Pool with \d+ threads",
     "ScalableLux runs on C2ME's executor": r"Lighting scaling is enabled in externally managed mode",
     "C2ME executor sized": r"Global Executor Parallelism: \d+ configured",
+    "dashboard mod started": r"perfdash ready",
+    "dashboard Shift+F hook applied": r"perfdash key combo hook active",
 }
 LOG_LINE = re.compile(r"^\[[\d:]+\] \[(?P<thread>[^/\]]+)/(?P<level>[A-Z]+)\]")
 
@@ -151,6 +153,16 @@ def prefetch_vanilla(server_dir: Path):
     target.write_bytes(data)
 
 
+def dashboard_print(srv: Server) -> list[str]:
+    """Run /dashboard print and return the panel lines (proves the sampler + renderer work)."""
+    mark = len(srv.lines)
+    srv.send("dashboard print")
+    srv.wait_for(r"entities .* chunks", 20, mark)
+    time.sleep(0.5)
+    return [LOG_LINE.sub("", l).replace("System chat:", "").strip() for l in srv.lines[mark:]
+            if LOG_LINE.match(l) and "Server thread/INFO" in l]
+
+
 def load_test(srv: Server, report: list[str], entities: int, chunky_radius: int):
     report += ["", "## Load test", ""]
     srv.command("time set day", r"Set the time")
@@ -183,6 +195,7 @@ def load_test(srv: Server, report: list[str], entities: int, chunky_radius: int)
     tick_lines = [LOG_LINE.sub("", l).strip() for l in srv.lines[q_mark:] if re.search(r"(?i)tick|percentile|ms", l)]
 
     report += ["### Entity load", "", "```"] + [LOG_LINE.sub("", l).strip() for l in stats] + tps_lines + tick_lines + ["```"]
+    report += ["", "In-game dashboard (`/dashboard print`) under entity load:", "", "```"] + dashboard_print(srv) + ["```"]
 
     # Chunk generation throughput (C2ME + ScalableLux)
     srv.send("kill @e[type=!minecraft:player]")
@@ -287,6 +300,16 @@ def main() -> int:
             problems.append("/spark tps produced no output")
         report += ["", "```"] + [LOG_LINE.sub("", l).replace("System chat:", "").strip()
                                  for l in srv.lines[-20:] if re.search(r"(?i)async|thread|entit|TPS|⚡", l)] + ["```"]
+        time.sleep(2)  # let the dashboard sampler take two samples
+        panel = dashboard_print(srv)
+        if not any("Main tick" in l for l in panel) or not any("Entities" in l for l in panel):
+            problems.append(f"/dashboard print did not render the panel: {panel}")
+        report += ["", "Dashboard at idle (`/dashboard print`):", "", "```"] + panel + ["```"]
+        st = srv.command("dashboard selftest", r"perfdash selftest OK.*", 20)
+        if not st:
+            problems.append("/dashboard selftest failed (sidebar packets do not serialize)")
+        else:
+            report += ["", st.group(0)]
         if args.load_test:
             load_test(srv, report, args.entities, args.chunky_radius)
         srv.send("stop")
