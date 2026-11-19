@@ -96,6 +96,30 @@ def fabric_launcher_url(mc: str, loader: str, installer: str) -> str:
     return f"{FABRIC_META}/versions/loader/{mc}/{loader}/{installer}/server/jar"
 
 
+def fabric_compile_deps(mc: str, loader: str) -> list[dict]:
+    """Fabric Loader + Sponge Mixin jars (with Fabric's published sha256) needed to
+    compile the dashboard mod against this loader version."""
+    meta = get_json(f"{FABRIC_META}/versions/loader/{mc}/{loader}/server/json")
+    deps = []
+    for lib in meta["libraries"]:
+        group, artifact = lib["name"].split(":")[:2]
+        if group == "net.fabricmc" and artifact in ("fabric-loader", "sponge-mixin"):
+            g, a, v = lib["name"].split(":")
+            url = f"{lib['url'].rstrip('/')}/{g.replace('.', '/')}/{a}/{v}/{a}-{v}.jar"
+            sha = lib.get("sha256")
+            if not sha:
+                # meta has no sha256 for these: verify against Maven's .sha1, then pin sha256
+                data = download(url)
+                expected_sha1 = download(url + ".sha1").decode().split()[0].strip()
+                if sha1(data) != expected_sha1:
+                    raise RuntimeError(f"sha1 mismatch for {url}")
+                sha = sha256(data)
+            deps.append({"coord": lib["name"], "repo": lib["url"], "sha256": sha})
+    if len(deps) != 2:
+        raise RuntimeError(f"could not find fabric-loader and sponge-mixin in loader meta: {deps}")
+    return sorted(deps, key=lambda d: d["coord"])
+
+
 def newest_mod_version(slug: str, mc_version: str, channel: str) -> dict | None:
     """Newest Fabric build of `slug` for exactly `mc_version` that is at least as
     stable as `channel`. Returns None if there is none."""
@@ -164,6 +188,16 @@ def write_modpack(pack: dict, path: Path = MODPACK) -> None:
     out.append("#   N  = pin both pools to N threads (recommended: physical cores - 1)")
     out.append("# build.py writes this into config/async.toml and config/c2me.toml.")
     out.append(f"worker_threads = {_q(pack['tuning']['worker_threads'])}")
+    out.append("")
+    out.append("[dashboard]")
+    out.append("# perfdash: the in-game load dashboard built from dashboard/ by build_dashboard.py.")
+    out.append("# compile = jars it is compiled against (not shipped); sha256 pinned after a Maven .sha1 check.")
+    out.append(f"version = {_q(pack['dashboard']['version'])}")
+    for dep in pack["dashboard"]["compile"]:
+        out.append("")
+        out.append("[[dashboard.compile]]")
+        for key in ("coord", "repo", "sha256"):
+            out.append(f"{key} = {_q(dep[key])}")
     for mod in pack["mods"]:
         out.append("")
         out.append("[[mods]]")

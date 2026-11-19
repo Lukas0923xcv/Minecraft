@@ -53,6 +53,7 @@ def bootstrap(mc_version: str) -> dict:
         "minecraft": {"version": mc_version, "java": 0, "server_sha1": ""},
         "fabric": {"loader": "", "installer": "", "launcher_sha256": ""},
         "tuning": {"worker_threads": 0},
+        "dashboard": {"version": "1.0.0", "compile": []},
         "mods": mods,
     }
 
@@ -105,6 +106,13 @@ def main() -> int:
             changes.append(f"Fabric installer {fab['installer'] or '-'} -> {installer}")
         jar = mr.download(mr.fabric_launcher_url(mc, loader, installer))
         fab.update(loader=loader, installer=installer, launcher_sha256=mr.sha256(jar))
+
+    # ---- compile classpath of the dashboard mod follows the loader version
+    pack.setdefault("dashboard", {"version": "1.0.0", "compile": []})
+    deps = mr.fabric_compile_deps(mc, fab["loader"])
+    if deps != pack["dashboard"]["compile"]:
+        pack["dashboard"]["compile"] = deps
+        changes.append("Dashboard compile deps: " + ", ".join(d["coord"] for d in deps))
 
     # ---- mods
     for mod in pack["mods"]:

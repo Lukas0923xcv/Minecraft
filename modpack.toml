@@ -29,6 +29,21 @@ launcher_sha256 = "70446947655b4f8f286aba896aa4c19a255e8ca8a730636ef2a6017ae4415
 # build.py writes this into config/async.toml and config/c2me.toml.
 worker_threads = 0
 
+[dashboard]
+# perfdash: the in-game load dashboard built from dashboard/ by build_dashboard.py.
+# compile = jars it is compiled against (not shipped); sha256 pinned after a Maven .sha1 check.
+version = "1.0.0"
+
+[[dashboard.compile]]
+coord = "net.fabricmc:fabric-loader:0.20.1"
+repo = "https://maven.fabricmc.net/"
+sha256 = "d0c5a082e07410aaff9de7ab196aa6b4236002870f9ba3ad5c1260fcce5110ad"
+
+[[dashboard.compile]]
+coord = "net.fabricmc:sponge-mixin:0.17.5+mixin.0.8.7"
+repo = "https://maven.fabricmc.net/"
+sha256 = "03f0065023bfc3045d71bfb99872451d9ad5a0800a5a0dac34ab8c7d5c134f5d"
+
 [[mods]]
 name = "Fabric API"
 slug = "fabric-api"

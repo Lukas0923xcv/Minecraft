@@ -107,6 +107,8 @@ def release_notes(pack: dict, tag: str, zip_name: str) -> str:
     for m in pack["mods"]:
         lines.append(f"| [{m['name']}](https://modrinth.com/mod/{m['slug']}) | {m['version_number']} | "
                      f"[`{m['version_id']}`](https://modrinth.com/mod/{m['slug']}/version/{m['version_id']}) | {m['workload']} |")
+    lines.append(f"| perfdash (this repo, `dashboard/`) | {pack['dashboard']['version']} | built from source | "
+                 "In-game load dashboard: Sneak + Swap-offhand (Shift+F) or `/dashboard` |")
     threads = pack["tuning"]["worker_threads"]
     lines += [
         "",
@@ -155,6 +157,12 @@ def main() -> int:
         print(f"mod       {mod['filename']}")
         data = fetch_verified(mod["url"], "sha512", mod["sha512"], args.cache, mod["filename"])
         (stage / "mods" / mod["filename"]).write_bytes(data)
+
+    # In-game dashboard, compiled from dashboard/ (needs JDK 25)
+    import build_dashboard
+    dash_jar = stage / "mods" / f"perfdash-{pack['dashboard']['version']}+mc{mc['version']}.jar"
+    print(f"mod       {dash_jar.name} (built from dashboard/)")
+    build_dashboard.build(pack, args.cache, dash_jar)
 
     shutil.copytree(SERVER_DIR / "config", stage / "config")
     shutil.copy2(SERVER_DIR / "server.properties", stage / "server.properties")
