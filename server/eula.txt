@@ -1,0 +1,4 @@
+# You must accept the Minecraft EULA (https://aka.ms/MinecraftEULA) before the
+# server will start. Crafty asks you on first start and sets this for you; on a
+# plain host change the line below to eula=true yourself.
+eula=false

@@ -1,0 +1,43 @@
+# Async: parallel entity ticking
+# https://modrinth.com/mod/async  https://github.com/AxalotLDev/Async
+#
+# NOTE: Async re-saves this file on start and keeps only its own one-line
+# comments. The full reasoning lives in README.md ("Thread tuning").
+#
+# THREAD COUNT (maxThreads)
+#   -1 = Async's auto: floor(cpus / 1.3) on Linux, i.e. 4 cpus -> 3, 6 -> 4, 8 -> 6.
+#   N  = exactly N worker threads (clamped to the number of cpus).
+#   This pool only works during the entity phase of each tick, while the main
+#   thread waits for it, so it overlaps with C2ME's pool (chunks + lighting) on
+#   purpose: the OS gives cores to whichever pool has work right now.
+#   Recommended pin: physical cores - 1 (4 -> 3, 6 -> 5, 8 -> 7), which leaves one
+#   core for the main thread, GC and Netty when every pool is busy at once.
+#   Set it once for both pools with [tuning] worker_threads in modpack.toml, or
+#   edit this line on the server and run /async config reload.
+#
+# SAFETY DEFAULTS (kept as shipped by Async)
+#   synchronizedEntities: TNT, dropped items and XP orbs tick on the main thread
+#   (TNT for chain-reaction order, items/orbs for merge logic). Async also always
+#   ticks minecarts on the main thread.
+#
+# EXPERIMENTAL, OFF BY DEFAULT
+#   enableAsyncSpawn: parallel mob spawning. Turn on with
+#     /async config setAsyncEntitySpawn true   (incompatible with Carpet's lagFreeSpawning)
+#   enableAsyncRandomTicks: parallel random ticks (crop growth, leaf decay, ...).
+#     /async config setAsyncRandomTicks true   (experimental: may cause crashes or
+#     wrong behavior; back up the world first)
+#   Both commands save to this file. Test with /async stats and /spark tps.
+
+#Disables the mod. All entities are ticked on the main thread.
+disabled = false
+#Worker threads for parallel ticking. -1 = auto.
+maxThreads = -1
+#Entities ticked on the main thread instead of in parallel.
+#Entity IDs or namespaces (*):
+#  - 'minecraft:zombie' = specific entity
+#  - 'minecraft:*'      = all entities in namespace
+synchronizedEntities = ["minecraft:tnt", "minecraft:experience_orb", "minecraft:item"]
+#Enables async entity spawning. WARNING: incompatible with Carpet's lagFreeSpawning.
+enableAsyncSpawn = false
+#Experimental! Enables async random ticks.
+enableAsyncRandomTicks = false
