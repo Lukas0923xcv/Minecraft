@@ -1,0 +1,138 @@
+# modpack.toml: the single source of truth for this server pack.
+#
+# scripts/build.py turns this file into dist/ (downloads every file, verifies its
+# hash, fails on mismatch). scripts/update.py rewrites the pinned versions and
+# hashes below; prefer running it over editing pins by hand.
+#
+# Per-mod fields:
+#   slug / project_id   Modrinth project
+#   channel             least stable Modrinth build type update.py may pick
+#                       (release | beta | alpha). The threading mods only publish
+#                       alpha builds, so they are pinned to "alpha" on purpose.
+#   version_id / version_number / filename / url / sha512   the pinned build
+#   workload            what the mod does in this pack (used in release notes)
+
+[minecraft]
+version = "26.3"
+java = 25
+server_sha1 = "33680f5f2ac32864d6d7cf5e56a705fdb3e05f4c"
+
+[fabric]
+loader = "0.20.1"
+installer = "1.1.2"
+launcher_sha256 = "70446947655b4f8f286aba896aa4c19a255e8ca8a730636ef2a6017ae4415d95"
+
+[tuning]
+# One knob for the worker pools of Async (entities) and C2ME (chunks + lighting).
+#   0  = auto: C2ME uses max(1, cpus - 1), Async uses its own auto (~cpus / 1.3)
+#   N  = pin both pools to N threads (recommended: physical cores - 1)
+# build.py writes this into config/async.toml and config/c2me.toml.
+worker_threads = 0
+
+[[mods]]
+name = "Fabric API"
+slug = "fabric-api"
+project_id = "P7dR8mSH"
+channel = "release"
+workload = "Dependency of Async, Chunky and spark"
+version_id = "Zns5SSRA"
+version_number = "0.166.2+26.3"
+filename = "fabric-api-0.166.2+26.3.jar"
+url = "https://cdn.modrinth.com/data/P7dR8mSH/versions/Zns5SSRA/fabric-api-0.166.2%2B26.3.jar"
+sha512 = "fb686a9fa923248328107a12498229d6951e316257f18b7d0e4cbd6885ba447ed50a44076a8a5ba47cfe2043b329db3587ab000aeab1face26b2587a5d4ba6b5"
+
+[[mods]]
+name = "Async"
+slug = "async"
+project_id = "vEC2jm6I"
+channel = "alpha"
+workload = "Parallel entity ticking (+ optional parallel mob spawning / random ticks)"
+version_id = "gcduhoHv"
+version_number = "0.2.5+alpha-26.3"
+filename = "async-fabric-0.2.5+alpha-26.3.jar"
+url = "https://cdn.modrinth.com/data/vEC2jm6I/versions/gcduhoHv/async-fabric-0.2.5%2Balpha-26.3.jar"
+sha512 = "dc7662973c1493ccd29ccf390583192bc49d33782dfd5245002427d160a2752fb6b4b09e9e1c7a3dd0f3f373454ed0ea4f9ae9a23752994dcb389662506489dc"
+
+[[mods]]
+name = "C2ME"
+slug = "c2me-fabric"
+project_id = "VSNURh3q"
+channel = "alpha"
+workload = "Parallel chunk loading, generation, IO and saving; also hosts ScalableLux's lighting tasks"
+version_id = "Qfm2hhas"
+version_number = "0.4.2-alpha.0.121+26.3"
+filename = "c2me-fabric-mc26.3-0.4.2-alpha.0.121.jar"
+url = "https://cdn.modrinth.com/data/VSNURh3q/versions/Qfm2hhas/c2me-fabric-mc26.3-0.4.2-alpha.0.121.jar"
+sha512 = "fbc2f2eda3451dbbb6d0bf670ef62155cd6529520211861a0e9787d4cb65b6cc8e0c341cd39394c80d890f7a44ee59c9a1665c7f1c5e6f3f145ed64326cb729a"
+
+[[mods]]
+name = "ScalableLux"
+slug = "scalablelux"
+project_id = "Ps1zyz6x"
+channel = "alpha"
+workload = "Parallel lighting engine (Starlight-based)"
+version_id = "g4eqNSKd"
+version_number = "0.3.0-alpha.0.6+26.3"
+filename = "ScalableLux-fabric-mc26.3-0.3.0-alpha.0.6-all.jar"
+url = "https://cdn.modrinth.com/data/Ps1zyz6x/versions/g4eqNSKd/ScalableLux-fabric-mc26.3-0.3.0-alpha.0.6-all.jar"
+sha512 = "ded5a939fb20ab81c1f33b147ca9b98050773dbb28dff16df939c7d567b626809522994ec8dbfb99e7f498dc6a4e62f25e141a87d18efb43f73fc5ad1569ccc9"
+
+[[mods]]
+name = "Lithium"
+slug = "lithium"
+project_id = "gvQqBUqZ"
+channel = "release"
+workload = "General game-logic / tick optimizations (single-threaded)"
+version_id = "fWv5bnZk"
+version_number = "mc26.3-0.26.3-fabric"
+filename = "lithium-fabric-0.26.3+mc26.3.jar"
+url = "https://cdn.modrinth.com/data/gvQqBUqZ/versions/fWv5bnZk/lithium-fabric-0.26.3%2Bmc26.3.jar"
+sha512 = "2ca92fb530135d2baddf0ba4cc4f93976234876a38c4aa02b487b2552400f005afcfbeebf5373fb4396fe2020537a42d7597b8da5a52b904355ef51d5fef07ad"
+
+[[mods]]
+name = "FerriteCore"
+slug = "ferrite-core"
+project_id = "uXXizFIs"
+channel = "release"
+workload = "Memory usage reduction"
+version_id = "d5ddUdiB"
+version_number = "9.0.0-fabric"
+filename = "ferritecore-9.0.0-fabric.jar"
+url = "https://cdn.modrinth.com/data/uXXizFIs/versions/d5ddUdiB/ferritecore-9.0.0-fabric.jar"
+sha512 = "d81fa97e11784c19d42f89c2f433831d007603dd7193cee45fa177e4a6a9c52b384b198586e04a0f7f63cd996fed713322578bde9a8db57e1188854ae5cbe584"
+
+[[mods]]
+name = "Very Many Players"
+slug = "vmp-fabric"
+project_id = "wnEe9KBa"
+channel = "alpha"
+workload = "Networking, player chunk tracking and entity tracking for many players"
+version_id = "2TFDVjDf"
+version_number = "0.2.0+beta.7.238+26.3"
+filename = "vmp-fabric-mc26.3-0.2.0+beta.7.238-all.jar"
+url = "https://cdn.modrinth.com/data/wnEe9KBa/versions/2TFDVjDf/vmp-fabric-mc26.3-0.2.0%2Bbeta.7.238-all.jar"
+sha512 = "c8658ccf8818a258e1160a2d394c80fd52708611570dc28d6bc391671a23e193760766ef77ddc5907e1a3a757cf20f4def67ae2bc184269effa547da1f377667"
+
+[[mods]]
+name = "spark"
+slug = "spark"
+project_id = "l6YH9Als"
+channel = "release"
+workload = "Profiler (/spark tps, /spark profiler)"
+version_id = "e3hsPc1o"
+version_number = "1.10.187-fabric"
+filename = "spark-1.10.187-fabric.jar"
+url = "https://cdn.modrinth.com/data/l6YH9Als/versions/e3hsPc1o/spark-1.10.187-fabric.jar"
+sha512 = "c74bf5d5a16b2445ec6ea717eac756412b272a8015e91f91a7bf5a27e6f2f99c4a11878d434510f941f37b0344b3a7d1ba0dd6c34e80642762c48fb6e9a93894"
+
+[[mods]]
+name = "Chunky"
+slug = "chunky"
+project_id = "fALzjamp"
+channel = "release"
+workload = "World pre-generation (/chunky)"
+version_id = "86FKD9qx"
+version_number = "1.5.66"
+filename = "Chunky-Fabric-1.5.66.jar"
+url = "https://cdn.modrinth.com/data/fALzjamp/versions/86FKD9qx/Chunky-Fabric-1.5.66.jar"
+sha512 = "6f0323daa69d61bd3b3fbe9d8b713664d9b7c69182183f8dcff6362b43783639778a96e32215dbfd329588f06b60a5d93656dbb1d391c660db203482aa972d5e"
